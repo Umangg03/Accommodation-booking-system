@@ -158,11 +158,11 @@ const Admin = () => {
                       {user.companies?.map((c) => c.name).join(", ") || "None"}
                     </td>
                     <td className="border border-gray-300 px-4 py-2 text-center">
-                      <button className="p-button p-button-outlined">
-                        Edit
+                      <button className="mr-2 p-2 border-round border-none bg-primary-700 text-white">
+                      <i className="fa-regular fa-pen-to-square"></i>  Edit
                       </button>
-                      <button className="p-button p-button-outlined ml-2">
-                        Delete
+                      <button className="p-2 border-round border-none bg-red-700 text-white">
+                       <i className="fa-solid fa-trash"></i> Delete
                       </button>
                     </td>
                   </tr>
@@ -212,11 +212,11 @@ const Admin = () => {
                       {company.industry}
                     </td>
                     <td className="border border-gray-300 px-4 py-2 text-center">
-                      <button className="p-button p-button-outlined">
-                        Edit
+                      <button className="mr-2 p-2 border-round border-none bg-primary-700 text-white">
+                      <i className="fa-regular fa-pen-to-square"></i>  Edit
                       </button>
-                      <button className="p-button p-button-outlined ml-2">
-                        Delete
+                      <button className="p-2 border-round border-none bg-red-700 text-white">
+                       <i className="fa-solid fa-trash"></i> Delete
                       </button>
                     </td>
                   </tr>

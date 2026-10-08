@@ -1,3 +1,4 @@
+import "./App.css";
 import Route from './routes/route'
 
 

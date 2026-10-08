@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { Divider } from 'primereact/divider';
+import { Button } from 'primereact/button';
+import { InputText } from 'primereact/inputtext';
 
 interface LoginForm {
   email: string;
@@ -97,8 +100,9 @@ const Login = () => {
   };
 
   return (
-    <main className="surface-ground flex align-items-center justify-content-center min-h-screen">
-      <section className="surface-card border-round-xl shadow-8 p-4 md:p-5 w-full md:w-30rem">
+    <>
+    <main className="surface-ground flex align-items-center justify-content-between min-h-screen">
+      <section className="border-round-xl p-4 md:p-5 w-full md:w-30rem">
         <header className="text-center mb-5">
           <h1 className="text-900 text-2xl font-bold m-0 mb-2">
             {isSelectingCompany ? "Choose a company" : "Welcome back"}
@@ -213,7 +217,15 @@ const Login = () => {
           )}
         </form>
       </section>
+          <div className="col-5 align-items-center justify-content-center w-full">
+                          <img
+                            src="/assets/thailand.jpg"
+                            alt="Integration illustration"
+                            className="w-full h-auto"
+                          />
+            </div>
     </main>
+    </>
   );
 };
 

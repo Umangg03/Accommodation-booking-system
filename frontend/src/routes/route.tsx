@@ -4,6 +4,7 @@ import {
   Navigate,
   Outlet,
   RouterProvider,
+  useLocation,
 } from "react-router-dom";
 import type { ReactNode } from "react";
 import Admin from '../components/dashboard/admin.tsx'
@@ -30,6 +31,7 @@ function RequireRole({
 }
 
 function AppLayout() {
+  useLocation();
   const role = sessionStorage.getItem("user_role")?.toLowerCase();  
   const isSignedIn = Boolean(sessionStorage.getItem("access_token"));
 
