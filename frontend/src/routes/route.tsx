@@ -12,6 +12,7 @@ import CreateCompany from "../components/dashboard/create.company.tsx";
 import CreateUser from "../components/dashboard/create.user.tsx";
 import UserPortal from "../components/dashboard/user.portal.tsx";
 import AccommodationsAdmin from "../components/dashboard/accommodations.admin.tsx";
+import NotFound from '../components/dashboard/not-found.tsx'
 
 function RequireRole({
   role,
@@ -25,29 +26,45 @@ function RequireRole({
   const isAllowed =
     isSignedIn &&
     (role === "admin" ? currentRole === "admin" : currentRole !== "admin");
-
   return isAllowed ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 function AppLayout() {
-  const role = sessionStorage.getItem("user_role")?.toLowerCase();
+  const role = sessionStorage.getItem("user_role")?.toLowerCase();  
   const isSignedIn = Boolean(sessionStorage.getItem("access_token"));
 
   return (
     <>
-      <nav className="flex  justify-content-center gap-4 p-4 bg-gray-200">
-        {!isSignedIn && <Link to="/">Login</Link>}
-        {isSignedIn && role === "admin" && (
-          <>
-            <Link to="/admin">Admin Dashboard</Link>
-            <Link to="/create-company">Create Company</Link>
-            <Link to="/create-user">Create User</Link>
-            <Link to="/accommodations">Accommodations</Link>
-          </>
-        )}
-        {isSignedIn && role !== "admin" && <Link to="/portal">User Portal</Link>}
-      </nav>
-      <Outlet />
+      <nav className="flex justify-content-center gap-4 p-4 bg-gray-200 text-gray-800 text-lg">
+  {!isSignedIn && (
+    <Link to="/" className="no-underline hover:text-primary transition-colors duration-150">
+      Login
+    </Link>
+  )}
+  {isSignedIn && role === "admin" && (
+    <>
+      <Link to="/admin" className="no-underline hover:text-primary transition-colors duration-150">
+        Admin Dashboard
+      </Link>
+      <Link to="/create-company" className="no-underline hover:text-primary transition-colors duration-150">
+        Create Company
+      </Link>
+      <Link to="/create-user" className="no-underline hover:text-primary transition-colors duration-150">
+        Create User
+      </Link>
+      <Link to="/accommodations" className="no-underline hover:text-primary transition-colors duration-150">
+        Accommodations
+      </Link>
+    </>
+  )}
+  {isSignedIn && role !== "admin" && (
+    <Link to="/portal" className="no-underline hover:text-primary transition-colors duration-150">
+      User Portal
+    </Link>
+  )}
+</nav>
+<Outlet />
+
     </>
   );
 }
@@ -97,6 +114,10 @@ const router = createBrowserRouter([
           </RequireRole>
         ),
       },
+      {
+        path:"*",
+        element:(<NotFound/>),
+      }
     ],
   },
 ]);

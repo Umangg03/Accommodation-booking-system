@@ -97,13 +97,7 @@ const UserPortal = () => {
   }, [navigate]);
 
   const signOut = () => {
-    sessionStorage.removeItem("access_token");
-    sessionStorage.removeItem("refresh_token");
-    sessionStorage.removeItem("company_id");
-    sessionStorage.removeItem("company_name");
-    sessionStorage.removeItem("user_role");
-    sessionStorage.removeItem("user_name");
-    sessionStorage.removeItem("user_email");
+   sessionStorage.clear();
     navigate("/");
   };
 

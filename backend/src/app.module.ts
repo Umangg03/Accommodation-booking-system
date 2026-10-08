@@ -21,7 +21,7 @@ import { Location } from './location/entities/location.entity';
 import { BookingStatus } from './bookings/entities/booking_status.entity';
 import { AuthModule } from './auth/auth.module';
 import { AuthUser } from './auth/entities/auth.user.entity';
-import { InitialAdminAndCompany1791430000000 } from './initial-admin-company.migration';
+// import { InitialAdminAndCompany1791430000000 } from './initial-admin-company.migration';
 
 
 
@@ -32,10 +32,10 @@ import { InitialAdminAndCompany1791430000000 } from './initial-admin-company.mig
       host: process.env.DB_HOST,
       port: Number(process.env.DB_PORT),
       username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
+      password: 'Umang#2005',
       database: process.env.DB_NAME,
       entities: [Users, Permission, Role, Customers, Company, Booking, Accommodation, AccommodationType, Location, BookingStatus, AuthUser],
-      migrations: [InitialAdminAndCompany1791430000000],
+      // migrations: [InitialAdminAndCompany1791430000000],
       synchronize: true,
       autoLoadEntities: true,
     }),
