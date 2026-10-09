@@ -41,7 +41,7 @@ const Admin = () => {
         <div className="col-2">
           <div>
             <div className="sidebar border-1 border-round border-top-none w-18rem flex flex-column align-items-center">
-              <div className="links mt-5">
+              <div className="links mt-auto mb-auto">
                 <ul className="w-15rem h-auto flex justify-content-center align-items-center flex-wrap">
                   <li
                     className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
