@@ -20,42 +20,116 @@ interface Company {
 const API_URL = "http://localhost:3000";
 
 const CreateCompany = () => {
-  const [isAdd, setIsAdd] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [form, setForm] = useState<CompanyForm>({
+  const emptyForm: CompanyForm = {
     name: "",
     address: "",
     industry: "",
-  });
+  };
+
+  const [isAdd, setIsAdd] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [form, setForm] = useState<CompanyForm>(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const navigate = useNavigate();
+
+  const loadCompanies = async () => {
+    try {
+      const response = await fetch(`${API_URL}/companies`);
+      const result: Company[] | ApiResponse = await response.json();
+
+      if (!response.ok) {
+        const message = Array.isArray(result) ? undefined : result.message;
+        throw new Error(
+          Array.isArray(message)
+            ? message.join(", ")
+            : (message ?? "Unable to load companies."),
+        );
+      }
+
+      if (!Array.isArray(result)) {
+        throw new Error("The server returned an invalid companies response.");
+      }
+
+      setCompanies(result);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load page data.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    void loadCompanies();
+  }, []);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setIsAdd(false);
+    setError("");
+    setSuccess("");
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setSuccess("");
-    setIsAdd((pre) => !pre);
+
+    const trimmedName = form.name.trim();
+    const trimmedAddress = form.address.trim();
+    const trimmedIndustry = form.industry.trim();
+
+    if (!trimmedName || !trimmedAddress || !trimmedIndustry) {
+      setError("Please complete all company details.");
+      return;
+    }
+
+    const isDuplicateCompany = companies.some(
+      (company) =>
+        company.name.toLowerCase() === trimmedName.toLowerCase() &&
+        company.id !== editingId,
+    );
+
+    if (isDuplicateCompany) {
+      setError("A company with this name already exists.");
+      return;
+    }
 
     try {
-      const response = await fetch("http://localhost:3000/companies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const response = await fetch(
+        editingId ? `${API_URL}/companies/${editingId}` : `${API_URL}/companies`,
+        {
+          method: editingId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: trimmedName,
+            address: trimmedAddress,
+            industry: trimmedIndustry,
+          }),
+        },
+      );
       const result: ApiResponse = await response.json();
 
       if (!response.ok) {
         setError(
           Array.isArray(result.message)
             ? result.message.join(", ")
-            : (result.message ?? "Unable to create company."),
+            : (result.message ??
+                `Unable to ${editingId ? "update" : "create"} company.`),
         );
         return;
       }
 
-      setForm({ name: "", address: "", industry: "" });
-      setSuccess("Company created successfully.");
+      await loadCompanies();
+      setForm(emptyForm);
+      setEditingId(null);
+      setIsAdd(false);
+      setSuccess(
+        editingId ? "Company updated successfully." : "Company created successfully.",
+      );
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -65,37 +139,46 @@ const CreateCompany = () => {
     }
   };
 
-  useEffect(() => {
-    const loadCompanies = async () => {
-      try {
-        const response = await fetch(`${API_URL}/companies`);
+  const editCompany = (company: Company) => {
+    setIsAdd(true);
+    setEditingId(company.id);
+    setForm({
+      name: company.name,
+      address: company.address,
+      industry: company.industry,
+    });
+    setError("");
+    setSuccess("");
+  };
 
-        const result: Company[] | ApiResponse = await response.json();
-        if (!response.ok) {
-          const message = Array.isArray(result) ? undefined : result.message;
-          throw new Error(
-            Array.isArray(message)
-              ? message.join(", ")
-              : (message ?? "Unable to load companies."),
-          );
-        }
+  const deleteCompany = async (id: number) => {
+    const confirmed = window.confirm("Are you sure you want to delete this company?");
+    if (!confirmed) {
+      return;
+    }
 
-        if (!Array.isArray(result)) {
-          throw new Error("The server returned an invalid companies response.");
-        }
+    setError("");
+    setSuccess("");
 
-        setCompanies(result);
-      } catch (requestError) {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to load page data.",
-        );
+    try {
+      const response = await fetch(`${API_URL}/companies/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to delete company.");
       }
-    };
 
-    void loadCompanies();
-  }, [handleSubmit]);
+      await loadCompanies();
+      setSuccess("Company deleted successfully.");
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to delete company.",
+      );
+    }
+  };
 
   return (
     <>
@@ -113,29 +196,30 @@ const CreateCompany = () => {
 
             <button
               className="p-2 border-round border-none bg-green-700 text-white"
-              onClick={() => setIsAdd((pre) => !pre)}
+              onClick={() => {
+                if (isAdd) {
+                  resetForm();
+                  return;
+                }
+                setIsAdd(true);
+                setEditingId(null);
+                setForm(emptyForm);
+                setError("");
+                setSuccess("");
+              }}
             >
-              {isAdd ? (
-                "Cancel"
-              ) : (
-                <>
-                  <i className="fa-solid fa-plus"></i> Add Company
-                </>
-              )}
+              {isAdd ? "Cancel" : <><i className="fa-solid fa-plus"></i> Add Company</>}
             </button>
           </div>
           <div className={isAdd ? "" : "hidden"}>
             <main className=" gap-8 m-5">
               <header className="text-center mb-5">
                 <h1 className="text-900 text-2xl font-bold m-0 mb-2">
-                  Create Company
+                  {editingId ? "Update Company" : "Create Company"}
                 </h1>
               </header>
 
-              <form
-                className="flex flex-column gap-4 p-3"
-                onSubmit={handleSubmit}
-              >
+              <form className="flex flex-column gap-4 p-3" onSubmit={handleSubmit}>
                 <div className="flex flex-column gap-2">
                   <label htmlFor="company-name">Company Name</label>
                   <input
@@ -198,13 +282,23 @@ const CreateCompany = () => {
                   </p>
                 )}
 
-                <button
-                  className="w-full p-3 border-1 border-round-md font-semibold cursor-pointer"
-                  type="submit"
-                  onClick={() => setIsAdd(true)}
-                >
-                  Create
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 p-3 border-1 border-round-md font-semibold cursor-pointer"
+                    type="submit"
+                  >
+                    {editingId ? "Update" : "Create"}
+                  </button>
+                  {editingId !== null && (
+                    <button
+                      className="p-3 border-1 border-round-md cursor-pointer"
+                      type="button"
+                      onClick={resetForm}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
             </main>
           </div>
@@ -212,14 +306,10 @@ const CreateCompany = () => {
             <table className="table-auto border-collapse border-2 border-gray-500 mb-4 w-full">
               <thead>
                 <tr>
-                  <th className="border border-gray-300 px-4 py-2">
-                    Comapny Name
-                  </th>
+                  <th className="border border-gray-300 px-4 py-2">Comapny Name</th>
                   <th className="border border-gray-300 px-4 py-2">Address</th>
                   <th className="border border-gray-300 px-4 py-2">Industry</th>
-                  <th className="border border-gray-300 px-4 py-2">
-                    Modifications
-                  </th>
+                  <th className="border border-gray-300 px-4 py-2">Modifications</th>
                 </tr>
               </thead>
               <tbody>
@@ -235,10 +325,16 @@ const CreateCompany = () => {
                       {company.industry}
                     </td>
                     <td className="border border-gray-300 px-4 py-2 text-center">
-                      <button className="mr-2 p-2 border-round border-none bg-primary-700 text-white">
+                      <button
+                        className="mr-2 p-2 border-round border-none bg-primary-700 text-white"
+                        onClick={() => editCompany(company)}
+                      >
                         <i className="fa-regular fa-pen-to-square"></i> Edit
                       </button>
-                      <button className="p-2 border-round border-none bg-red-700 text-white">
+                      <button
+                        className="p-2 border-round border-none bg-red-700 text-white"
+                        onClick={() => void deleteCompany(company.id)}
+                      >
                         <i className="fa-solid fa-trash"></i> Delete
                       </button>
                     </td>

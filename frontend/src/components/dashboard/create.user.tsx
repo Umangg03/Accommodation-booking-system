@@ -9,6 +9,7 @@ interface UserForm {
   name: string;
   email: string;
   password: string;
+  companyIds: number[];
 }
 
 interface ApiResponse {
@@ -30,43 +31,157 @@ interface User {
 const API_URL = "http://localhost:3000";
 
 const CreateUser = () => {
-  const [isAdd, setIsAdd] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>([]);
-  const [form, setForm] = useState<UserForm>({
+  const emptyForm: UserForm = {
     name: "",
     email: "",
     password: "",
-  });
+    companyIds: [],
+  };
+
+  const [isAdd, setIsAdd] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>([]);
+  const [form, setForm] = useState<UserForm>(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const loadUsersAndCompanies = async () => {
+    try {
+      const [companiesResponse, usersResponse] = await Promise.all([
+        fetch(`${API_URL}/companies`),
+        fetch(`${API_URL}/users`),
+      ]);
+
+      const companiesResult: Company[] | ApiResponse = await companiesResponse.json();
+      const usersResult: User[] | ApiResponse = await usersResponse.json();
+
+      if (!companiesResponse.ok) {
+        const message = Array.isArray(companiesResult)
+          ? undefined
+          : companiesResult.message;
+
+        throw new Error(
+          Array.isArray(message)
+            ? message.join(", ")
+            : (message ?? "Unable to load companies."),
+        );
+      }
+
+      if (!usersResponse.ok) {
+        const message = Array.isArray(usersResult) ? undefined : usersResult.message;
+
+        throw new Error(
+          Array.isArray(message)
+            ? message.join(", ")
+            : (message ?? "Unable to load users."),
+        );
+      }
+
+      if (!Array.isArray(companiesResult) || !Array.isArray(usersResult)) {
+        throw new Error("The server returned invalid user data.");
+      }
+
+      setCompanies(companiesResult);
+      setUsers(usersResult);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load user data.",
+      );
+    }
+  };
+
+  useEffect(() => {
+    void loadUsersAndCompanies();
+  }, []);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setSelectedCompanyIds([]);
+    setEditingId(null);
+    setIsAdd(false);
+    setError("");
+    setSuccess("");
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setSuccess("");
-    setIsAdd((pre) => !pre);
+
+    const trimmedEmail = form.email.trim();
+    const isDuplicateEmail = users.some(
+      (user) =>
+        user.email.toLowerCase() === trimmedEmail.toLowerCase() &&
+        user.id !== editingId,
+    );
+
+    if (!trimmedEmail) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (isDuplicateEmail) {
+      setError("A user with this email already exists.");
+      return;
+    }
+
+    if (selectedCompanyIds.length === 0) {
+      setError("Please select at least one company.");
+      return;
+    }
+
+    if (!editingId && !form.password.trim()) {
+      setError("Password is required.");
+      return;
+    }
+
+    const payload: Partial<UserForm> & {
+      email: string;
+      companyIds: number[];
+    } = {
+      ...form,
+      email: trimmedEmail,
+      companyIds: selectedCompanyIds,
+    };
+
+    if (editingId && (!payload.password || !payload.password.trim())) {
+      delete payload.password;
+    }
 
     try {
-      const response = await fetch(`${API_URL}/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, companyIds: selectedCompanyIds }),
-      });
+      const response = await fetch(
+        editingId ? `${API_URL}/users/${editingId}` : `${API_URL}/users`,
+        {
+          method: editingId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
       const result: ApiResponse = await response.json();
+
       if (!response.ok) {
         setError(
           Array.isArray(result.message)
             ? result.message.join(", ")
-            : (result.message ?? "Unable to create user."),
+            : (result.message ??
+                `Unable to ${editingId ? "update" : "create"} user.`),
         );
         return;
       }
 
-      setForm({ name: "", email: "", password: "" });
+      await loadUsersAndCompanies();
+      setForm(emptyForm);
       setSelectedCompanyIds([]);
-      setSuccess("User created successfully.");
+      setEditingId(null);
+      setIsAdd(false);
+      setSuccess(
+        editingId ? "User updated successfully." : "User created successfully.",
+      );
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -76,54 +191,19 @@ const CreateUser = () => {
     }
   };
 
-  useEffect(() => { 
-    const loadCompanies = async () => {
-      try {
-        const response = await fetch(`${API_URL}/companies`);
-        const result: Company[] | ApiResponse = await response.json();
-        const usersResponse = await fetch(`${API_URL}/users`);
-        const usersResult: User[] | ApiResponse = await usersResponse.json();
-
-        if (!usersResponse.ok) {
-          const message = Array.isArray(usersResult)
-            ? undefined
-            : usersResult.message;
-
-          throw new Error(
-            Array.isArray(message)
-              ? message.join(", ")
-              : (message ?? "Unable to load users."),
-          );
-        }
-
-        if (!Array.isArray(usersResult)) {
-          throw new Error("The server returned an invalid users response.");
-        }
-
-        if (!response.ok) {
-          const message = Array.isArray(result) ? undefined : result.message;
-          throw new Error(
-            Array.isArray(message)
-              ? message.join(", ")
-              : (message ?? "Unable to load companies."),
-          );
-        }
-        if (!Array.isArray(result)) {
-          throw new Error("The server returned an invalid companies response.");
-        }
-        setCompanies(result);
-        setUsers(usersResult);
-      } catch (requestError) {
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "Unable to load companies.",
-        );
-      }
-    };
-
-    void loadCompanies();
-  }, [handleSubmit]);
+  const editUser = (user: User) => {
+    setIsAdd(true);
+    setEditingId(user.id);
+    setForm({
+      name: user.name,
+      email: user.email,
+      password: "",
+      companyIds: user.companies.map((company) => company.id),
+    });
+    setSelectedCompanyIds(user.companies.map((company) => company.id));
+    setError("");
+    setSuccess("");
+  };
 
   const toggleCompany = (companyId: number) => {
     setSelectedCompanyIds((selected) =>
@@ -133,11 +213,40 @@ const CreateUser = () => {
     );
   };
 
+  const deleteUser = async (id: number) => {
+    const confirmed = window.confirm("Are you sure you want to delete this user?");
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await fetch(`${API_URL}/users/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to delete user.");
+      }
+
+      await loadUsersAndCompanies();
+      setSuccess("User deleted successfully.");
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to delete user.",
+      );
+    }
+  };
+
   return (
     <>
       <div className="hedding flex align-items-center justify-content-between mb-3 w-full">
         <div>
-          <h3 className="text-900 text-xl font-bold m-0 mb-2">  Users</h3>
+          <h3 className="text-900 text-xl font-bold m-0 mb-2">Users</h3>
           {users.length === 0 ? (
             <p className="m-0">No users are available.</p>
           ) : (
@@ -147,22 +256,27 @@ const CreateUser = () => {
 
         <button
           className="p-2 border-round border-none bg-green-700 text-white"
-          onClick={() => setIsAdd((pre) => !pre)}
+          onClick={() => {
+            if (isAdd) {
+              resetForm();
+              return;
+            }
+            setIsAdd(true);
+            setEditingId(null);
+            setForm(emptyForm);
+            setSelectedCompanyIds([]);
+            setError("");
+            setSuccess(""); 
+          }}
         >
-          {isAdd ? (
-            "Cancel"
-          ) : (
-            <>
-              <i className="fa-solid fa-plus"></i> Add User
-            </>
-          )}
+          {isAdd ? "Cancel" : <><i className="fa-solid fa-plus"></i> Add User</>}
         </button>
       </div>
       <div className={isAdd ? "" : "hidden"}>
         <main className="p-5 m-5 gap-8 h-auto">
           <header className="text-center mb-5">
             <h1 className="text-900 text-2xl font-bold m-0 mb-2">
-              Create User
+              {editingId ? "Update User" : "Create User"}
             </h1>
           </header>
 
@@ -209,7 +323,7 @@ const CreateUser = () => {
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                required
+                required={!editingId}
                 value={form.password}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -253,15 +367,26 @@ const CreateUser = () => {
               </p>
             )}
 
-            <button
-              className="w-full p-3 border-1 border-round-md font-semibold cursor-pointer"
-              type="submit"
-              disabled={
-                companies.length === 0 || selectedCompanyIds.length === 0
-              }
-            >
-              Create
-            </button>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 p-3 border-1 border-round-md font-semibold cursor-pointer"
+                type="submit"
+                disabled={
+                  companies.length === 0 || selectedCompanyIds.length === 0
+                }
+              >
+                {editingId ? "Update" : "Create"}
+              </button>
+              {editingId !== null && (
+                <button
+                  className="p-3 border-1 border-round-md cursor-pointer"
+                  type="button"
+                  onClick={resetForm}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </form>
         </main>
       </div>
@@ -295,10 +420,16 @@ const CreateUser = () => {
                   {user.companies?.map((c) => c.name).join(", ") || "None"}
                 </td>
                 <td className="border border-gray-300 px-4 py-2 text-center">
-                  <button className="mr-2 p-2 border-round border-none bg-primary-700 text-white">
+                  <button
+                    className="mr-2 p-2 border-round border-none bg-primary-700 text-white"
+                    onClick={() => editUser(user)}
+                  >
                     <i className="fa-regular fa-pen-to-square"></i> Edit
                   </button>
-                  <button className="p-2 border-round border-none bg-red-700 text-white">
+                  <button
+                    className="p-2 border-round border-none bg-red-700 text-white"
+                    onClick={() => void deleteUser(user.id)}
+                  >
                     <i className="fa-solid fa-trash"></i> Delete
                   </button>
                 </td>
