@@ -30,51 +30,8 @@ function RequireRole({
   return isAllowed ? <>{children}</> : <Navigate to="/" replace />;
 }
 
-function AppLayout() {
-  useLocation();
-  const role = sessionStorage.getItem("user_role")?.toLowerCase();  
-  const isSignedIn = Boolean(sessionStorage.getItem("access_token"));
-
-  return (
-    <>
-      <nav className="flex justify-content-center gap-4 p-4 bg-gray-200 text-gray-800 text-lg">
-  {!isSignedIn && (
-    <Link to="/" className="no-underline hover:text-primary transition-colors duration-150">
-      Login
-    </Link>
-  )}
-  {isSignedIn && role === "admin" && (
-    <>
-      <Link to="/admin" className="no-underline hover:text-primary transition-colors duration-150">
-        Admin Dashboard
-      </Link>
-      <Link to="/create-company" className="no-underline hover:text-primary transition-colors duration-150">
-        Create Company
-      </Link>
-      <Link to="/create-user" className="no-underline hover:text-primary transition-colors duration-150">
-        Create User
-      </Link>
-      <Link to="/accommodations" className="no-underline hover:text-primary transition-colors duration-150">
-        Accommodations
-      </Link>
-    </>
-  )}
-  {isSignedIn && role !== "admin" && (
-    <Link to="/portal" className="no-underline hover:text-primary transition-colors duration-150">
-      User Portal
-    </Link>
-  )}
-</nav>
-<Outlet />
-
-    </>
-  );
-}
 
 const router = createBrowserRouter([
-  {
-    element: <AppLayout />,
-    children: [
       { path: "/", element: <Login/> },
       {
         path: "/admin",
@@ -120,8 +77,6 @@ const router = createBrowserRouter([
         path:"*",
         element:(<NotFound/>),
       }
-    ],
-  },
 ]);
 
 const route = () => <RouterProvider router={router} />;

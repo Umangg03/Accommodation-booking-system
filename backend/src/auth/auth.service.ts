@@ -40,6 +40,7 @@ export class AuthService {
   ): Promise<{ companies: AssignedCompany[] } | SignInTokens> {
     const user = await this.usersService.findByEmail(email);
 
+    console.log(user)
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }

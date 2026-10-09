@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface AccommodationType {
   id: number;
@@ -51,62 +52,7 @@ const AccommodationsAdmin = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-
-  const loadData = useCallback(async () => {
-    try {
-      const [accommodationResponse, typeResponse, locationResponse] =
-        await Promise.all([
-          fetch(`${API_URL}/accommodations`),
-          fetch(`${API_URL}/accommodations/types`),
-          fetch(`${API_URL}/location`),
-        ]);
-      const accommodationResult = await accommodationResponse.json();
-      const typeResult = await typeResponse.json();
-      const locationResult = await locationResponse.json();
-
-      if (!accommodationResponse.ok) {
-        throw new Error(
-          errorMessage(
-            accommodationResult.message,
-            "Unable to load accommodations.",
-          ),
-        );
-      }
-      if (!typeResponse.ok) {
-        throw new Error(
-          errorMessage(typeResult.message, "Unable to load accommodation types."),
-        );
-      }
-      if (!locationResponse.ok) {
-        throw new Error(
-          errorMessage(locationResult.message, "Unable to load locations."),
-        );
-      }
-      if (
-        !Array.isArray(accommodationResult) ||
-        !Array.isArray(typeResult) ||
-        !Array.isArray(locationResult)
-      ) {
-        throw new Error("The server returned invalid accommodation data.");
-      }
-
-      setAccommodations(accommodationResult);
-      setTypes(typeResult);
-      setLocations(locationResult);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to load accommodation data.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  const [isAdd, setIsAdd] = useState(false);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -117,6 +63,7 @@ const AccommodationsAdmin = () => {
     event.preventDefault();
     setError("");
     setSuccess("");
+    setIsAdd((pre) => !pre);
 
     try {
       const response = await fetch(
@@ -142,7 +89,9 @@ const AccommodationsAdmin = () => {
       }
 
       resetForm();
-      setSuccess(editingId ? "Accommodation updated." : "Accommodation created.");
+      setSuccess(
+        editingId ? "Accommodation updated." : "Accommodation created.",
+      );
       await loadData();
     } catch (requestError) {
       setError(
@@ -154,6 +103,7 @@ const AccommodationsAdmin = () => {
   };
 
   const edit = (accommodation: Accommodation) => {
+    setIsAdd(true);
     setEditingId(accommodation.id);
     setForm({
       description: accommodation.description,
@@ -198,15 +148,88 @@ const AccommodationsAdmin = () => {
     }
   };
 
+  const loadData = useCallback(async () => {
+    try {
+      const [accommodationResponse, typeResponse, locationResponse] =
+        await Promise.all([
+          fetch(`${API_URL}/accommodations`),
+          fetch(`${API_URL}/accommodations/types`),
+          fetch(`${API_URL}/location`),
+        ]);
+      const accommodationResult = await accommodationResponse.json();
+      const typeResult = await typeResponse.json();
+      const locationResult = await locationResponse.json();
+
+      if (!accommodationResponse.ok) {
+        throw new Error(
+          errorMessage(
+            accommodationResult.message,
+            "Unable to load accommodations.",
+          ),
+        );
+      }
+      if (!typeResponse.ok) {
+        throw new Error(
+          errorMessage(
+            typeResult.message,
+            "Unable to load accommodation types.",
+          ),
+        );
+      }
+      if (!locationResponse.ok) {
+        throw new Error(
+          errorMessage(locationResult.message, "Unable to load locations."),
+        );
+      }
+      if (
+        !Array.isArray(accommodationResult) ||
+        !Array.isArray(typeResult) ||
+        !Array.isArray(locationResult)
+      ) {
+        throw new Error("The server returned invalid accommodation data.");
+      }
+
+      setAccommodations(accommodationResult);
+      setTypes(typeResult);
+      setLocations(locationResult);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to load accommodation data.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [submit, edit, remove]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
   return (
-    <main className="surface-ground flex align-items-center justify-content-center gap-8 min-h-screen p-3">
-      <section className="surface-card border-round-xl shadow-8 p-4 md:p-5 w-full md:w-8">
+    <>
+      <div className="heading flex align-items-center justify-content-between w-full">
+        <h2 className="text-900 text-xl font-semibold m-0">Accommodations</h2>
+        <button
+          className="p-2 border-round border-none bg-green-700 text-white"
+          onClick={() => setIsAdd((pre) => !pre)}
+        >
+          {isAdd ? (
+            "Cancel"
+          ) : (
+            <>
+              <i className="fa-solid fa-plus"></i> Add Accommodation
+            </>
+          )}
+        </button>
+      </div>
+      <main className={isAdd ? "" : "hidden"}>
         <header className="text-center mb-5">
           <h1 className="text-900 text-2xl font-bold m-0 mb-2">
             {editingId ? "Update Accommodation" : "Create Accommodation"}
           </h1>
         </header>
-
         <form className="flex flex-column gap-3 p-3" onSubmit={submit}>
           <div className="flex flex-column gap-2">
             <label htmlFor="accommodation-description">Description</label>
@@ -321,11 +344,9 @@ const AccommodationsAdmin = () => {
             )}
           </div>
         </form>
-
+      </main>
+      <div className={isAdd ? "hidden" : ""}>
         <section className="flex flex-column gap-3 mt-5">
-          <h2 className="text-900 text-xl font-semibold m-0">
-            Accommodations
-          </h2>
           {isLoading ? (
             <p className="m-0">Loading accommodations...</p>
           ) : accommodations.length === 0 ? (
@@ -381,8 +402,8 @@ const AccommodationsAdmin = () => {
             ))
           )}
         </section>
-      </section>
-    </main>
+      </div>
+    </>
   );
 };
 
