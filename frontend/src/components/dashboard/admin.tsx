@@ -40,39 +40,39 @@ const Admin = () => {
       <div className="grid nested-grid">
         <div className="col-2">
           <div>
+            <div className="sidebar border-1 border-round border-top-none w-18rem flex flex-column align-items-center">
+              <div className="links mt-5">
+                <ul className="w-15rem h-auto flex justify-content-center align-items-center flex-wrap">
+                  <li
+                    className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
+                    onClick={handleUserView}
+                  >
+                    <i className="fa-solid fa-users"></i>Users
+                  </li>
+                  <li
+                    className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
+                    onClick={handleComapnyView}
+                  >
+                    <i className="fa-solid fa-building"></i> Companies
+                  </li>
+                  <li
+                    className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
+                    onClick={handleAccommodationView}
+                  >
+                    <i className="fa-solid fa-bed"></i> Accommodations
+                  </li>
+                </ul>
+              </div>
 
-<div className="sidebar border-1 border-round border-top-none w-18rem flex flex-column align-items-center">
-  
-
-  <div className="links mt-5">
-    <ul className="w-15rem h-auto flex justify-content-center align-items-center flex-wrap">
-      <li
-        className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
-        onClick={handleUserView}
-      >
-        <i className="fa-solid fa-users"></i>Users
-      </li>
-      <li
-        className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
-        onClick={handleComapnyView}
-      >
-        <i className="fa-solid fa-building"></i> Companies
-      </li>
-      <li
-        className="w-12rem h-2rem bg-yellow-200 flex justify-content-center gap-3 align-items-center m-2 cursor-pointer"
-        onClick={handleAccommodationView}
-      >
-        <i className="fa-solid fa-bed"></i> Accommodations
-      </li>
-    </ul>
-  </div>
-
-  <div className="mt-auto mb-1 p-3 border-round w-15rem text-center">
-    <button className="cursor-pointer p-2 w-4 border-none border-round" onClick={signOut}>Logout</button>
-  </div>
-  
-</div>
-
+              <div className="mt-auto mb-1 p-3 border-round w-15rem text-center">
+                <button
+                  className="cursor-pointer p-2 w-4 border-none border-round"
+                  onClick={signOut}
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div className="col-9 gap-5">
