@@ -7,7 +7,7 @@ const RESOURCE_LABELS: Record<Resource | "permissions", string> = {
   accommodations: "Accommodations, types, and locations",
   customers: "Customers",
   bookings: "Bookings",
-  permissions: "Permission matrix",
+  permissions: "Permissions Page",
 };
 const ACTION_LABELS: Record<Action, string> = {
   view: "View",

@@ -266,11 +266,6 @@ const Login = () => {
               </div>
             </form>
           </div>
-
-          <p className="text-500 text-xs line-height-3 m-0">
-            By signing in you agree to our terms and confirm that you have read
-            our data policy.
-          </p>
         </section>
 
         <aside className="hidden lg:block relative flex-1 bg-teal-900">

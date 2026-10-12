@@ -5,11 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Raw, Repository } from 'typeorm';
+import { AlreadyHasActiveConnectionError, In, Raw, Repository } from 'typeorm';
 import { Company } from '../companies/entities/company.entity';
 import { Customers } from './entities/customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { error } from 'node:console';
 
 @Injectable()
 export class CustomersService {
@@ -30,6 +31,14 @@ export class CustomersService {
         'Only an admin can assign a customer to multiple companies.',
       );
     }
+    const isHas = await this.customerRepository.findOne({
+      where: { email: createCustomerDto.email },
+    });
+
+    if(isHas){
+      throw new AlreadyHasActiveConnectionError('This Customer already exsits')
+    }
+    
     const companies = isAdmin
       ? await this.resolveCompanies(createCustomerDto.companyIds)
       : await this.resolveCompanies([companyId]);
