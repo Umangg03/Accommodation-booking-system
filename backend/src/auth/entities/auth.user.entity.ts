@@ -21,17 +21,17 @@ export class AuthUser {
   @Column({ nullable: true })
   selectedCompanyId: number;
 
-  @Column({ nullable: true })
-  accessToken: string;
+  @Column({ type: 'varchar', nullable: true })
+  accessToken: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  accessTokenExpires: Date;
+  accessTokenExpires: Date | null;
 
-  @Column({ name: 'refreshTokenn', nullable: true })
-  refreshToken: string;
+  @Column({ name: 'refreshTokenn', type: 'varchar', nullable: true })
+  refreshToken: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  refreshTokenExpires: Date;
+  refreshTokenExpires: Date | null;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP(6)' })
   createdAt: Date;

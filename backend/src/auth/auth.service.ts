@@ -1,4 +1,10 @@
-import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service.js';
 import bcrypt from 'bcrypt';
@@ -6,6 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AuthUser } from './entities/auth.user.entity.js';
 import { Repository } from 'typeorm';
 import * as dotenv from 'dotenv'
+import { normalizeRole } from './permissions';
 dotenv.config();
 
 export interface AssignedCompany {
@@ -39,8 +46,6 @@ export class AuthService {
     companyId?: number,
   ): Promise<{ companies: AssignedCompany[] } | SignInTokens> {
     const user = await this.usersService.findByEmail(email);
-
-    console.log(user)
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -53,30 +58,67 @@ export class AuthService {
 
     const companies = user.companies ?? [];
     if (companyId === undefined) {
+      const superCompanyName = process.env.COMPANY_NAME?.trim();
+      const superCompany = superCompanyName
+        ? companies.find(
+            (assignedCompany) =>
+              assignedCompany.name.trim().toLowerCase() ===
+              superCompanyName.toLowerCase(),
+          )
+        : undefined;
+      if (superCompany) {
+        const superCompanyRole = normalizeRole(
+          await this.usersService.findCompanyRole(user.id, superCompany.id),
+        );
+        if (superCompanyRole === 'ADMIN') {
+          return this.issueTokens(user, superCompany, superCompanyRole, 'Platform');
+        }
+      }
       return {
-        companies: companies.map(({ id, name }) => ({ id, name })),
+        companies: companies
+          .filter(
+            ({ name }) =>
+              !superCompanyName ||
+              name.trim().toLowerCase() !== superCompanyName.toLowerCase(),
+          )
+          .map(({ id, name }) => ({ id, name })),
       };
     }
 
-    const company = companies.find((assignedCompany) => assignedCompany.id === companyId);
+    const superCompanyName = process.env.COMPANY_NAME?.trim();
+    const company = companies.find(
+      (assignedCompany) =>
+        assignedCompany.id === companyId &&
+        (!superCompanyName ||
+          assignedCompany.name.trim().toLowerCase() !==
+            superCompanyName.toLowerCase()),
+    );
     if (!company) {
       throw new UnauthorizedException('You are not assigned to this company');
     }
 
-    const { accessToken, refreshToken, accessExpiresAt, refreshExpiresAt } =
-      await this.generateTokens(
-        user.id,
-        user.email,
-        user.name,
-        user.role,
-        company.id,
+    const role = normalizeRole(
+      await this.usersService.findCompanyRole(user.id, company.id),
+    );
+    if (!role) {
+      throw new ForbiddenException(
+        'The selected company does not have a valid role for this user.',
       );
+    }
+    return this.issueTokens(user, company, role);
+  }
 
-
+  private async issueTokens(
+    user: { id: number; name: string; email: string },
+    company: AssignedCompany,
+    role: string,
+    displayCompanyName = company.name,
+  ): Promise<SignInTokens> {
+    const { accessToken, refreshToken, accessExpiresAt, refreshExpiresAt } =
+      await this.generateTokens(user.id, role, company.id);
     let authUser = await this.authUserRepository.findOne({
       where: { user: { id: user.id } },
     });
-
     if (!authUser) {
       authUser = this.authUserRepository.create({ user });
     }
@@ -86,16 +128,53 @@ export class AuthService {
     authUser.refreshToken = refreshToken;
     authUser.refreshTokenExpires = refreshExpiresAt;
     authUser.selectedCompanyId = company.id;
-
     await this.authUserRepository.save(authUser);
 
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-      company: { id: company.id, name: company.name },
-      role: user.role?.role ?? 'User',
+      company: { id: company.id, name: displayCompanyName },
+      role,
       user: { name: user.name, email: user.email },
     };
+  }
+
+  async resetPassword(
+    email: string,
+    currentPassword: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) {
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException(
+        'New password and confirmation do not match.',
+      );
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'New password must be different from the current password.',
+      );
+    }
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user?.password || !(await bcrypt.compare(currentPassword, user.password))) {
+      throw new UnauthorizedException(
+        'Unable to reset password. Check your email and current password.',
+      );
+    }
+
+    await this.usersService.updatePassword(user.id, newPassword);
+    const authUser = await this.authUserRepository.findOne({
+      where: { user: { id: user.id } },
+    });
+    if (authUser) {
+      authUser.accessToken = null;
+      authUser.accessTokenExpires = null;
+      authUser.refreshToken = null;
+      authUser.refreshTokenExpires = null;
+      await this.authUserRepository.save(authUser);
+    }
+    return { message: 'Password updated successfully.' };
   }
 
   async refreshTokens(userId: number, providedRefreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
@@ -108,7 +187,11 @@ export class AuthService {
       where: { user: { id: userId } },
     });
 
-    if (!authUser || !authUser.refreshToken) {
+    if (
+      !authUser ||
+      !authUser.refreshToken ||
+      !authUser.refreshTokenExpires
+    ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -134,14 +217,16 @@ export class AuthService {
       throw new UnauthorizedException('User is no longer assigned to this company');
     }
 
-    const { accessToken, refreshToken, accessExpiresAt, refreshExpiresAt } =
-      await this.generateTokens(
-        user.id,
-        user.email,
-        user.name,
-        user.role,
-        company.id,
+    const role = normalizeRole(
+      await this.usersService.findCompanyRole(user.id, company.id),
+    );
+    if (!role) {
+      throw new UnauthorizedException(
+        'User has no valid role in the selected company.',
       );
+    }
+    const { accessToken, refreshToken, accessExpiresAt, refreshExpiresAt } =
+      await this.generateTokens(user.id, role, company.id);
 
 
     authUser.accessToken = accessToken;
@@ -159,9 +244,7 @@ export class AuthService {
 
   private async generateTokens(
     userId: number,
-    email: string,
-    name: string,
-    role: unknown,
+    role: string,
     companyId: number,
   ) {
     const accessSecret = process.env.JWT_ACCESS_SECRET;
@@ -172,10 +255,8 @@ export class AuthService {
 
     const payload = {
       sub: userId,
-      username: email,
-      name,
-      roles: role,
       companyId,
+      role,
     };
 
     const accessExpiresAt = new Date(Date.now() + 60 * 60 * 1000);

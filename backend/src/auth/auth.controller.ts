@@ -1,6 +1,15 @@
 import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { Public } from './public.decorator';
+import {
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 class SignInRequest {
   @IsOptional()
@@ -32,11 +41,29 @@ class RefreshTokenRequest {
   refresh_token: string;
 }
 
+class ResetPasswordRequest {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
+
+  @IsString()
+  @MinLength(8)
+  confirmPassword: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('sign-in')
+  @Public()
   signIn(@Body() body: SignInRequest) {
     
     if (!body.email) {
@@ -47,7 +74,19 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @Public()
   refresh(@Body() body: RefreshTokenRequest) {
     return this.authService.refreshTokens(body.id, body.refresh_token);
+  }
+
+  @Post('forgot-password')
+  @Public()
+  resetPassword(@Body() body: ResetPasswordRequest) {
+    return this.authService.resetPassword(
+      body.email,
+      body.currentPassword,
+      body.newPassword,
+      body.confirmPassword,
+    );
   }
 }

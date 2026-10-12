@@ -1,5 +1,13 @@
-import { useState, useEffect, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiFetch, API_URL } from "../../lib/api";
+import { usePermissions } from "../../auth/usePermissions";
+
+interface Company {
+  id: number;
+  name: string;
+  address: string;
+  industry: string;
+}
 
 interface CompanyForm {
   name: string;
@@ -11,164 +19,140 @@ interface ApiResponse {
   message?: string | string[];
 }
 
-interface Company {
-  id: number;
-  name: string;
-  address: string;
-  industry: string;
-}
-const API_URL = "http://localhost:3000";
+const EMPTY_FORM: CompanyForm = { name: "", address: "", industry: "" };
+
+const getErrorMessage = (message: ApiResponse["message"], fallback: string) =>
+  Array.isArray(message) ? message.join(", ") : (message ?? fallback);
 
 const CreateCompany = () => {
-  const emptyForm: CompanyForm = {
-    name: "",
-    address: "",
-    industry: "",
-  };
-
-  const [isAdd, setIsAdd] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const { can } = usePermissions();
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [form, setForm] = useState<CompanyForm>(emptyForm);
+  const [form, setForm] = useState<CompanyForm>(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const loadCompanies = async () => {
-    try {
-      const response = await fetch(`${API_URL}/companies`);
-      const result: Company[] | ApiResponse = await response.json();
-
-      if (!response.ok) {
-        const message = Array.isArray(result) ? undefined : result.message;
-        throw new Error(
-          Array.isArray(message)
-            ? message.join(", ")
-            : (message ?? "Unable to load companies."),
-        );
-      }
-
-      if (!Array.isArray(result)) {
-        throw new Error("The server returned an invalid companies response.");
-      }
-
-      setCompanies(result);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to load page data.",
+    const response = await apiFetch(`${API_URL}/companies`);
+    const result: Company[] | ApiResponse = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        getErrorMessage(
+          Array.isArray(result) ? undefined : result.message,
+          "Unable to load companies.",
+        ),
       );
     }
+    if (!Array.isArray(result)) {
+      throw new Error("The server returned invalid company data.");
+    }
+    setCompanies(result);
   };
 
   useEffect(() => {
-    void loadCompanies();
+    void loadCompanies()
+      .catch((requestError: unknown) => {
+        setError(
+          requestError instanceof Error
+            ? requestError.message
+            : "Unable to load companies.",
+        );
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(EMPTY_FORM);
     setEditingId(null);
-    setIsAdd(false);
+    setIsFormVisible(false);
     setError("");
     setSuccess("");
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     setSuccess("");
-
-    const trimmedName = form.name.trim();
-    const trimmedAddress = form.address.trim();
-    const trimmedIndustry = form.industry.trim();
-
-    if (!trimmedName || !trimmedAddress || !trimmedIndustry) {
+    const name = form.name.trim();
+    const address = form.address.trim();
+    const industry = form.industry.trim();
+    if (!name || !address || !industry) {
       setError("Please complete all company details.");
       return;
     }
-
-    const isDuplicateCompany = companies.some(
-      (company) =>
-        company.name.toLowerCase() === trimmedName.toLowerCase() &&
-        company.id !== editingId,
-    );
-
-    if (isDuplicateCompany) {
+    if (
+      companies.some(
+        (company) =>
+          company.name.toLowerCase() === name.toLowerCase() &&
+          company.id !== editingId,
+      )
+    ) {
       setError("A company with this name already exists.");
       return;
     }
 
     try {
-      const response = await fetch(
-        editingId ? `${API_URL}/companies/${editingId}` : `${API_URL}/companies`,
+      const response = await apiFetch(
+        `${API_URL}/companies${editingId ? `/${editingId}` : ""}`,
         {
           method: editingId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: trimmedName,
-            address: trimmedAddress,
-            industry: trimmedIndustry,
-          }),
+          body: JSON.stringify({ name, address, industry }),
         },
       );
       const result: ApiResponse = await response.json();
-
       if (!response.ok) {
-        setError(
-          Array.isArray(result.message)
-            ? result.message.join(", ")
-            : (result.message ??
-                `Unable to ${editingId ? "update" : "create"} company.`),
+        throw new Error(
+          getErrorMessage(
+            result.message,
+            `Unable to ${editingId ? "update" : "create"} company.`,
+          ),
         );
-        return;
       }
-
       await loadCompanies();
-      setForm(emptyForm);
+      setForm(EMPTY_FORM);
       setEditingId(null);
-      setIsAdd(false);
+      setIsFormVisible(false);
       setSuccess(
-        editingId ? "Company updated successfully." : "Company created successfully.",
+        editingId
+          ? "Company updated successfully."
+          : "Company created successfully.",
       );
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Unable to connect to the server.",
+          : "Unable to save company.",
       );
     }
   };
 
   const editCompany = (company: Company) => {
-    setIsAdd(true);
-    setEditingId(company.id);
     setForm({
       name: company.name,
       address: company.address,
       industry: company.industry,
     });
+    setEditingId(company.id);
+    setIsFormVisible(true);
     setError("");
     setSuccess("");
   };
 
-  const deleteCompany = async (id: number) => {
-    const confirmed = window.confirm("Are you sure you want to delete this company?");
-    if (!confirmed) {
-      return;
-    }
-
+  const deleteCompany = async (company: Company) => {
+    if (!window.confirm(`Delete company ${company.name}?`)) return;
     setError("");
     setSuccess("");
-
     try {
-      const response = await fetch(`${API_URL}/companies/${id}`, {
+      const response = await apiFetch(`${API_URL}/companies/${company.id}`, {
         method: "DELETE",
       });
-
+      const result: ApiResponse = await response.json();
       if (!response.ok) {
-        throw new Error("Unable to delete company.");
+        throw new Error(getErrorMessage(result.message, "Unable to delete company."));
       }
-
       await loadCompanies();
       setSuccess("Company deleted successfully.");
     } catch (requestError) {
@@ -181,171 +165,185 @@ const CreateCompany = () => {
   };
 
   return (
-    <>
-      <div className="accommodationData w-full h-screen">
-        <div className="comapnydata flex flex-column">
-          <div className="hedding flex align-items-center justify-content-between mb-3">
-            <div>
-              <h3 className="text-900 text-xl font-bold m-0 mb-2">Companies</h3>
-              {companies.length === 0 ? (
-                <p className="m-0">No companies are available.</p>
-              ) : (
-                <p className="m-0">List of companies:</p>
-              )}
-            </div>
+    <section className="surface-card border-1 surface-border border-round-lg p-3 md:p-4">
+      <header className="flex flex-column sm:flex-row align-items-stretch sm:align-items-center justify-content-between gap-3 mb-3">
+        <div>
+          <h2 className="text-900 text-xl font-bold m-0 mb-2">Companies</h2>
+          <p className="text-600 m-0">
+            {companies.length === 0
+              ? "No companies are available."
+              : `${companies.length} compan${companies.length === 1 ? "y" : "ies"}`}
+          </p>
+        </div>
+        {can("companies", "create") && (
+          <button
+            className="p-2 px-3 border-round border-none bg-green-700 text-white cursor-pointer sm:w-auto"
+            type="button"
+            onClick={() => {
+              if (isFormVisible) {
+                resetForm();
+                return;
+              }
+              setForm(EMPTY_FORM);
+              setEditingId(null);
+              setIsFormVisible(true);
+              setError("");
+              setSuccess("");
+            }}
+          >
+            {isFormVisible ? "Cancel" : "Add company"}
+          </button>
+        )}
+      </header>
 
+      {error && (
+        <p className="text-red-600 m-0 mb-3" role="alert">
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className="text-green-700 m-0 mb-3" role="status">
+          {success}
+        </p>
+      )}
+
+      {isFormVisible && (
+        <form
+          className="surface-ground border-round-md p-3 md:p-4 mb-4 flex flex-column gap-3 max-w-30rem mx-auto"
+          onSubmit={submit}
+        >
+          <h3 className="text-900 text-lg font-semibold m-0">
+            {editingId ? "Edit company" : "Create company"}
+          </h3>
+          <div className="flex flex-column gap-2">
+            <label htmlFor="company-name">Company name</label>
+            <input
+              id="company-name"
+              className="block p-2 border-1 surface-border border-round-md"
+              required
+              value={form.name}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, name: event.target.value }))
+              }
+            />
+          </div>
+          <div className="flex flex-column gap-2">
+            <label htmlFor="company-address">Address</label>
+            <textarea
+              id="company-address"
+              rows={2}
+              className="block p-2 border-1 surface-border border-round-md"
+              required
+              value={form.address}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  address: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="flex flex-column gap-2">
+            <label htmlFor="company-industry">Industry</label>
+            <input
+              id="company-industry"
+              className="block p-2 border-1 surface-border border-round-md"
+              required
+              value={form.industry}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  industry: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="flex flex-column sm:flex-row gap-2">
             <button
-              className="p-2 border-round border-none bg-green-700 text-white"
-              onClick={() => {
-                if (isAdd) {
-                  resetForm();
-                  return;
-                }
-                setIsAdd(true);
-                setEditingId(null);
-                setForm(emptyForm);
-                setError("");
-                setSuccess("");
-              }}
+              className="flex-1 p-2 border-1 border-round-md cursor-pointer"
+              type="submit"
             >
-              {isAdd ? "Cancel" : <><i className="fa-solid fa-plus"></i> Add Company</>}
+              {editingId ? "Save changes" : "Create company"}
+            </button>
+            <button
+              className="p-2 border-1 border-round-md cursor-pointer"
+              type="button"
+              onClick={resetForm}
+            >
+              Cancel
             </button>
           </div>
-          <div className={isAdd ? "" : "hidden"}>
-            <main className=" gap-8 m-5">
-              <header className="text-center mb-5">
-                <h1 className="text-900 text-2xl font-bold m-0 mb-2">
-                  {editingId ? "Update Company" : "Create Company"}
-                </h1>
-              </header>
+        </form>
+      )}
 
-              <form className="flex flex-column gap-4 p-3" onSubmit={handleSubmit}>
-                <div className="flex flex-column gap-2">
-                  <label htmlFor="company-name">Company Name</label>
-                  <input
-                    id="company-name"
-                    type="text"
-                    required
-                    value={form.name}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    className="text-base text-color surface-overlay p-2 border-1 border-solid surface-border border-round w-full"
-                  />
-                </div>
-
-                <div className="flex flex-column gap-2">
-                  <label htmlFor="company-address">Address</label>
-                  <textarea
-                    id="company-address"
-                    rows={2}
-                    required
-                    value={form.address}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        address: event.target.value,
-                      }))
-                    }
-                    className="text-base text-color surface-overlay p-2 border-1 border-solid surface-border border-round w-full"
-                  />
-                </div>
-
-                <div className="flex flex-column gap-2">
-                  <label htmlFor="company-industry">Industry</label>
-                  <input
-                    id="company-industry"
-                    type="text"
-                    required
-                    value={form.industry}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        industry: event.target.value,
-                      }))
-                    }
-                    className="text-base text-color surface-overlay p-2 border-1 border-solid surface-border border-round w-full"
-                  />
-                </div>
-
-                {error && (
-                  <p className="text-red-600 m-0" role="alert">
-                    {error}
-                  </p>
-                )}
-                {success && (
-                  <p className="text-green-700 m-0" role="status">
-                    {success}
-                  </p>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 p-3 border-1 border-round-md font-semibold cursor-pointer"
-                    type="submit"
+      {isLoading ? (
+        <p className="m-0">Loading companies...</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr>
+                {[
+                  "Company",
+                  "Address",
+                  "Industry",
+                  ...(can("companies", "update") || can("companies", "delete")
+                    ? ["Actions"]
+                    : []),
+                ].map((heading) => (
+                  <th
+                    className="border-1 border-solid surface-border p-2 md:px-4 md:py-2 text-left"
+                    key={heading}
                   >
-                    {editingId ? "Update" : "Create"}
-                  </button>
-                  {editingId !== null && (
-                    <button
-                      className="p-3 border-1 border-round-md cursor-pointer"
-                      type="button"
-                      onClick={resetForm}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </form>
-            </main>
-          </div>
-          <div className={isAdd ? "hidden" : ""}>
-            <table className="table-auto border-collapse border-2 border-gray-500 mb-4 w-full">
-              <thead>
-                <tr>
-                  <th className="border border-gray-300 px-4 py-2">Comapny Name</th>
-                  <th className="border border-gray-300 px-4 py-2">Address</th>
-                  <th className="border border-gray-300 px-4 py-2">Industry</th>
-                  <th className="border border-gray-300 px-4 py-2">Modifications</th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((company) => (
-                  <tr key={company.id} className="py-1">
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      {company.name}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      {company.address}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      {company.industry}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-2 text-center">
-                      <button
-                        className="mr-2 p-2 border-round border-none bg-primary-700 text-white"
-                        onClick={() => editCompany(company)}
-                      >
-                        <i className="fa-regular fa-pen-to-square"></i> Edit
-                      </button>
-                      <button
-                        className="p-2 border-round border-none bg-red-700 text-white"
-                        onClick={() => void deleteCompany(company.id)}
-                      >
-                        <i className="fa-solid fa-trash"></i> Delete
-                      </button>
-                    </td>
-                  </tr>
+                    {heading}
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {companies.map((company) => (
+                <tr key={company.id}>
+                  <td className="border-1 border-solid surface-border p-2 md:px-4 md:py-2">
+                    {company.name}
+                  </td>
+                  <td className="border-1 border-solid surface-border p-2 md:px-4 md:py-2">
+                    {company.address}
+                  </td>
+                  <td className="border-1 border-solid surface-border p-2 md:px-4 md:py-2">
+                    {company.industry}
+                  </td>
+                  {(can("companies", "update") ||
+                    can("companies", "delete")) && (
+                    <td className="border-1 border-solid surface-border p-2 md:px-4 md:py-2">
+                      <div className="flex flex-column sm:flex-row gap-2">
+                        {can("companies", "update") && (
+                          <button
+                            className="p-2 border-round border-none bg-primary-700 text-white cursor-pointer"
+                            type="button"
+                            onClick={() => editCompany(company)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {can("companies", "delete") && (
+                          <button
+                            className="p-2 border-round border-none bg-red-700 text-white cursor-pointer"
+                            type="button"
+                            onClick={() => void deleteCompany(company)}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
-    </>
+      )}
+    </section>
   );
 };
 

@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany, JoinTable } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany } from "typeorm"
 import { Customers } from "../../customers/entities/customer.entity"
-import { Users } from "../../users/entities/user.entity"
+import { CompanyMembership } from "../../users/entities/company-membership.entity"
+import { Booking } from "../../bookings/entities/booking.entity"
 
 @Entity()
 export class Company {
@@ -16,9 +17,12 @@ export class Company {
     @Column()
     industry: string
 
-    @OneToMany(()=> Customers, (customer)=> customer.company)
-    customer: Customers[]
+    @ManyToMany(() => Customers, (customer) => customer.companies)
+    customers: Customers[]
 
-    @ManyToMany(()=> Users, (user) => user.companies)
-    users: Users[]
+    @OneToMany(() => CompanyMembership, (membership) => membership.company)
+    memberships: CompanyMembership[];
+
+    @OneToMany(() => Booking, (booking) => booking.company)
+    bookings: Booking[];
 }

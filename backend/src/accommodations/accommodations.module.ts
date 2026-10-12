@@ -6,9 +6,6 @@ import { Accommodation } from './entities/accommodation.entity';
 import { AccommodationType } from './entities/accommodation_type.entity';
 import { Location } from '../location/entities/location.entity';
 import { Booking } from '../bookings/entities/booking.entity';
-import { JwtModule } from '@nestjs/jwt';
-import { AccessTokenGuard } from '../auth/access-token.guard';
-import { AdminRoleGuard } from '../auth/admin-role.guard';
 
 @Module({
   imports: [
@@ -18,9 +15,8 @@ import { AdminRoleGuard } from '../auth/admin-role.guard';
       Location,
       Booking,
     ]),
-    JwtModule.register({}),
   ],
   controllers: [AccommodationsController],
-  providers: [AccommodationsService, AccessTokenGuard, AdminRoleGuard],
+  providers: [AccommodationsService],
 })
 export class AccommodationsModule {}

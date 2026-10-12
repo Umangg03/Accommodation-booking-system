@@ -1,46 +1,57 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Location } from './entities/location.entity';
 import { Repository } from 'typeorm';
+import { Accommodation } from '../accommodations/entities/accommodation.entity';
 
 @Injectable()
 export class LocationService {
-
-  constructor(@InjectRepository(Location)
-      private locationRepositry : Repository<Location>
-){}
+  constructor(
+    @InjectRepository(Location)
+    private readonly locationRepository: Repository<Location>,
+    @InjectRepository(Accommodation)
+    private readonly accommodationRepository: Repository<Accommodation>,
+  ) {}
 
   async create(createLocationDto: CreateLocationDto) {
-    const location = this.locationRepositry.create(createLocationDto)
-    return await this.locationRepositry.save(location);
+    const location = this.locationRepository.create(createLocationDto);
+    return this.locationRepository.save(location);
   }
 
   async findAll() {
-    return await this.locationRepositry.find({
-      order:{
-        id:"ASC"
-      }
-    })
+    return this.locationRepository.find({ order: { id: 'ASC' } });
   }
 
   async findOne(id: number) {
-    const location = await this.locationRepositry.findOne({where : {id}})
-    if(!location){
-      throw new NotFoundException(`Location With ID ${id} Not Found`)
+    const location = await this.locationRepository.findOne({ where: { id } });
+    if (!location) {
+      throw new NotFoundException(`Location With ID ${id} Not Found`);
     }
     return location;
-  } 
+  }
 
   async update(id: number, updateLocationDto: UpdateLocationDto) {
-    const location = await this.findOne(id)
-    Object.assign(location,updateLocationDto)
-    return await this.locationRepositry.save(location);
+    const location = await this.findOne(id);
+    Object.assign(location, updateLocationDto);
+    return this.locationRepository.save(location);
   }
 
   async remove(id: number) {
     const location = await this.findOne(id)
-    return await this.locationRepositry.remove(location);
+    const accommodationCount = await this.accommodationRepository.count({
+      where: { location: { id } },
+    });
+    if (accommodationCount > 0) {
+      throw new BadRequestException(
+        'A location used by accommodations cannot be deleted.',
+      );
+    }
+    return this.locationRepository.remove(location);
   }
 }

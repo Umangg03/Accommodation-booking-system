@@ -5,15 +5,17 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { IS_PUBLIC_KEY } from './public.decorator';
 
 export interface AccessTokenPayload {
   sub: number;
-  username: string;
-  name: string;
   companyId: number;
-  roles?: string | { role?: string };
+  role?: string;
+  username?: string;
+  name?: string;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -21,10 +23,21 @@ export interface AuthenticatedRequest extends Request {
 }
 
 @Injectable()
-export class AccessTokenGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+export class JwtAuthGuard implements CanActivate {
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authorization = request.headers.authorization;
     const [scheme, token] = authorization?.split(' ') ?? [];
@@ -44,9 +57,7 @@ export class AccessTokenGuard implements CanActivate {
         await this.jwtService.verifyAsync<AccessTokenPayload>(token, { secret });
       if (
         !Number.isInteger(payload.sub) ||
-        !Number.isInteger(payload.companyId) ||
-        typeof payload.username !== 'string' ||
-        typeof payload.name !== 'string'
+        !Number.isInteger(payload.companyId)
       ) {
         throw new UnauthorizedException('Invalid access token.');
       }
@@ -59,4 +70,7 @@ export class AccessTokenGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired access token.');
     }
   }
+
 }
+
+export { JwtAuthGuard as AccessTokenGuard };

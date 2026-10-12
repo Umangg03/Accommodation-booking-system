@@ -11,14 +11,13 @@ import type { AuthenticatedRequest } from './access-token.guard';
 export class AdminRoleGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const roles = request.user?.roles;
-    const role = typeof roles === 'string' ? roles : roles?.role;
+    const role = request.user?.role;
 
     if (!request.user) {
       throw new UnauthorizedException('Sign in is required.');
     }
-    if (role?.toLowerCase() !== 'admin') {
-      throw new ForbiddenException('Only admins can manage accommodations.');
+    if (role?.toUpperCase() !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can perform this action.');
     }
     return true;
   }

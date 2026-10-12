@@ -11,6 +11,8 @@ import { Accommodation } from './entities/accommodation.entity';
 import { AccommodationType } from './entities/accommodation_type.entity';
 import { CreateAccommodationDto } from './dto/create-accommodation.dto';
 import { UpdateAccommodationDto } from './dto/update-accommodation.dto';
+import { CreateAccommodationTypeDto } from './dto/create-accommodation-type.dto';
+import { UpdateAccommodationTypeDto } from './dto/update-accommodation-type.dto';
 
 @Injectable()
 export class AccommodationsService {
@@ -34,6 +36,45 @@ export class AccommodationsService {
 
   findAllTypes() {
     return this.typeRepository.find({ order: { id: 'ASC' } });
+  }
+
+  async createType(createDto: CreateAccommodationTypeDto) {
+    const accommodationType = this.typeRepository.create({
+      name: createDto.name.trim(),
+      description: createDto.description.trim(),
+    });
+    return this.typeRepository.save(accommodationType);
+  }
+
+  async updateType(id: number, updateDto: UpdateAccommodationTypeDto) {
+    const accommodationType = await this.typeRepository.findOneBy({ id });
+    if (!accommodationType) {
+      throw new NotFoundException(`Accommodation type with id ${id} not found`);
+    }
+    if (updateDto.name !== undefined) {
+      accommodationType.name = updateDto.name.trim();
+    }
+    if (updateDto.description !== undefined) {
+      accommodationType.description = updateDto.description.trim();
+    }
+    return this.typeRepository.save(accommodationType);
+  }
+
+  async removeType(id: number) {
+    const accommodationType = await this.typeRepository.findOneBy({ id });
+    if (!accommodationType) {
+      throw new NotFoundException(`Accommodation type with id ${id} not found`);
+    }
+    const accommodationCount = await this.accommodationRepository.count({
+      where: { accommodation_type: { id } },
+    });
+    if (accommodationCount > 0) {
+      throw new BadRequestException(
+        'An accommodation type in use cannot be deleted.',
+      );
+    }
+    await this.typeRepository.remove(accommodationType);
+    return { id };
   }
 
   async create(createDto: CreateAccommodationDto) {

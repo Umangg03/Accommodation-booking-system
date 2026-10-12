@@ -13,6 +13,7 @@ describe('UsersService', () => {
     create: jest.Mock;
     findOne: jest.Mock;
     save: jest.Mock;
+    manager: { query: jest.Mock };
   };
   let roleRepository: {
     findOneBy: jest.Mock;
@@ -25,7 +26,8 @@ describe('UsersService', () => {
     userRepository = {
       create: jest.fn((user) => user),
       findOne: jest.fn(),
-      save: jest.fn(async (user) => user),
+      save: jest.fn(async (user) => ({ ...user, id: 1 })),
+      manager: { query: jest.fn().mockResolvedValue([]) },
     };
     roleRepository = {
       findOneBy: jest.fn(async () => ({ id: 2, role: 'User' })),
@@ -60,7 +62,7 @@ describe('UsersService', () => {
   });
 
   it('hashes a new user password before saving', async () => {
-    await service.create({
+    const result = await service.create({
       name: 'Jay',
       email: 'jay@gmail.com',
       password: 'jay@2005',
@@ -69,7 +71,12 @@ describe('UsersService', () => {
 
     const savedUser = userRepository.save.mock.calls[0][0] as Users;
     expect(savedUser.password).not.toBe('jay@2005');
-    expect(savedUser.companies).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(result.companies).toEqual([{ id: 1 }, { id: 2 }]);
+    expect(result.companyRoles).toEqual([
+      { companyId: 1, role: 'USER' },
+      { companyId: 2, role: 'USER' },
+    ]);
+    expect(userRepository.manager.query).toHaveBeenCalledTimes(2);
     await expect(bcrypt.compare('jay@2005', savedUser.password)).resolves.toBe(true);
   });
 
@@ -104,6 +111,7 @@ describe('UsersService', () => {
       email: 'jay@gmail.com',
       password: 'old-password-hash',
       role: { id: 1 },
+      companyMemberships: [],
     } as Users;
     userRepository.findOne.mockResolvedValue(user);
 

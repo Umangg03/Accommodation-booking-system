@@ -1,7 +1,8 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from "typeorm";
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from "typeorm";
 import { Customers } from "../../customers/entities/customer.entity";
 import { BookingStatus } from "./booking_status.entity";
 import { Accommodation } from "../../accommodations/entities/accommodation.entity";
+import { Company } from "../../companies/entities/company.entity";
 
 @Entity()
 export class Booking {
@@ -17,6 +18,10 @@ export class Booking {
 
     @ManyToOne(()=> Customers ,(customer)=> customer.booking)
     customer: Customers
+
+    @ManyToOne(() => Company, (company) => company.bookings, { nullable: true })
+    @JoinColumn({ name: "companyId" })
+    company: Company
 
     @ManyToOne(()=>BookingStatus,(status)=>status.booking)
     status: BookingStatus;

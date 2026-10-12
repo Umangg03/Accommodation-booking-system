@@ -7,8 +7,6 @@ import { BookingStatus } from './entities/booking_status.entity';
 import { Accommodation } from '../accommodations/entities/accommodation.entity';
 import { Customers } from '../customers/entities/customer.entity';
 import { Company } from '../companies/entities/company.entity';
-import { JwtModule } from '@nestjs/jwt';
-import { AccessTokenGuard } from '../auth/access-token.guard';
 
 @Module({
   imports: [
@@ -19,9 +17,8 @@ import { AccessTokenGuard } from '../auth/access-token.guard';
       Customers,
       Company,
     ]),
-    JwtModule.register({}),
   ],
   controllers: [BookingsController],
-  providers: [BookingsService, AccessTokenGuard],
+  providers: [BookingsService],
 })
 export class BookingsModule {}

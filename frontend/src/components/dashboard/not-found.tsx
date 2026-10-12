@@ -2,8 +2,6 @@ import { Link } from "react-router-dom";
 
 const NotFound = () => {
   const isSignedIn = Boolean(sessionStorage.getItem("access_token"));
-  const role = sessionStorage.getItem("user_role")?.toLowerCase();
-  const dashboardPath = role === "admin" ? "/admin" : "/portal";
 
   return (
     <main className="surface-ground flex align-items-center justify-content-center min-h-screen p-3 md:p-5">
@@ -13,8 +11,7 @@ const NotFound = () => {
       >
         <div
           aria-hidden="true"
-          className="surface-ground border-circle flex align-items-center justify-content-center mx-auto mb-4"
-          style={{ width: "6rem", height: "6rem" }}
+          className="surface-ground border-circle flex align-items-center justify-content-center mx-auto mb-4 w-6rem h-6rem"
         >
           <span className="text-primary text-5xl font-bold">?</span>
         </div>
@@ -28,21 +25,21 @@ const NotFound = () => {
         >
           This page wandered off
         </h1>
-        <p className="text-600 text-lg line-height-3 mx-auto mt-0 mb-5" style={{ maxWidth: "30rem" }}>
+        <p className="text-600 text-lg line-height-3 mx-auto mt-0 mb-5 max-w-30rem">
           The link may be broken, or the page may have moved. Let’s get you back
           to somewhere familiar.
         </p>
 
         <div className="flex flex-column sm:flex-row justify-content-center gap-3">
           <Link
-            to={isSignedIn ? dashboardPath : "/"}
-            className="bg-primary text-white no-underline border-round-md font-semibold px-4 py-3 transition-colors transition-duration-150 hover:bg-primary-600"
+            to={isSignedIn ? "/dashboard" : "/"}
+            className="bg-primary text-white no-underline border-round-md font-semibold px-4 py-3"
           >
             {isSignedIn ? "Go to dashboard" : "Back to login"}
           </Link>
           <Link
             to="/"
-            className="surface-card text-color no-underline border-1 surface-border border-round-md font-semibold px-4 py-3 transition-colors transition-duration-150 hover:surface-ground"
+            className="surface-card text-color no-underline border-1 surface-border border-round-md font-semibold px-4 py-3"
           >
             Go to home
           </Link>
